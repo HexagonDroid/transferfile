@@ -4,110 +4,115 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL to wrap in WebView'
+        description: 'Website URL'
         required: true
         default: 'https://example.com'
 
 jobs:
-  build:
+  build-ipa:
     runs-on: macos-latest
 
     steps:
-      - name: Set up WebView app
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up working directory
         run: |
           mkdir WebViewApp && cd WebViewApp
+          cat > Info.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+           "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleIdentifier</key>
+            <string>com.github.webviewwrapper</string>
+            <key>CFBundleExecutable</key>
+            <string>WebViewApp</string>
+            <key>CFBundleName</key>
+            <string>WebViewApp</string>
+            <key>CFBundleVersion</key>
+            <string>1.0</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>UILaunchStoryboardName</key>
+            <string>LaunchScreen</string>
+            <key>UIRequiresFullScreen</key>
+            <true/>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSRequiresIPhoneOS</key>
+            <true/>
+            <key>NSAppTransportSecurity</key>
+            <dict>
+              <key>NSAllowsArbitraryLoads</key>
+              <true/>
+            </dict>
+          </dict>
+          </plist>
+          EOF
 
-          # Write Info.plist
-          cat > Info.plist <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
- "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleIdentifier</key>
-  <string>com.github.webview</string>
-  <key>CFBundleExecutable</key>
-  <string>WebViewApp</string>
-  <key>CFBundleName</key>
-  <string>WebViewApp</string>
-  <key>CFBundleVersion</key>
-  <string>1.0</string>
-  <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
-  <key>UILaunchStoryboardName</key>
-  <string>LaunchScreen</string>
-  <key>UIRequiresFullScreen</key>
-  <true/>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
-  <key>LSRequiresIPhoneOS</key>
-  <true/>
-  <key>NSAppTransportSecurity</key>
-  <dict>
-    <key>NSAllowsArbitraryLoads</key>
-    <true/>
-  </dict>
-</dict>
-</plist>
-EOF
-
-          # Write main.swift
           cat > main.swift <<EOF
-import UIKit
-import WebKit
+          import UIKit
+          import WebKit
 
-class ViewController: UIViewController, WKNavigationDelegate {
-    override func loadView() {
-        let webView = WKWebView()
-        webView.navigationDelegate = self
-        self.view = webView
-    }
+          class ViewController: UIViewController, WKNavigationDelegate {
+              override func loadView() {
+                  let webView = WKWebView()
+                  webView.navigationDelegate = self
+                  self.view = webView
+              }
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        if let webView = self.view as? WKWebView {
-            let url = URL(string: "${{ github.event.inputs.url }}")!
-            webView.load(URLRequest(url: url))
-            webView.allowsBackForwardNavigationGestures = true
-        }
-    }
+              override func viewDidLoad() {
+                  super.viewDidLoad()
+                  if let webView = self.view as? WKWebView {
+                      let url = URL(string: "\(URL)")!
+                      webView.load(URLRequest(url: url))
+                      webView.allowsBackForwardNavigationGestures = true
+                  }
+              }
 
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        decisionHandler(.allow)
-    }
-}
+              func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                           decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+                  decisionHandler(.allow)
+              }
+          }
 
-class AppDelegate: UIResponder, UIApplicationDelegate {
-    var window: UIWindow?
+          class AppDelegate: UIResponder, UIApplicationDelegate {
+              var window: UIWindow?
 
-    func application(_ application: UIApplication,
-                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        window = UIWindow()
-        window?.rootViewController = ViewController()
-        window?.makeKeyAndVisible()
-        return true
-    }
-}
+              func application(_ application: UIApplication,
+                               didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                  window = UIWindow()
+                  window?.rootViewController = ViewController()
+                  window?.makeKeyAndVisible()
+                  return true
+              }
+          }
 
-UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
-EOF
+          UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
+          EOF
 
       - name: Build IPA
         run: |
           cd WebViewApp
-          mkdir -p Payload/WebViewApp.app
 
+          mkdir Payload
+          mkdir -p WebViewApp.app
+
+          # Compile Swift app
           xcrun -sdk iphoneos swiftc -target arm64-apple-ios13.0 \
-            -framework UIKit -framework WebKit \
-            main.swift -o Payload/WebViewApp.app/WebViewApp
+            -import-objc-header /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIKit.h \
+            -framework UIKit -framework WebKit -emit-executable main.swift -o WebViewApp.app/WebViewApp
 
-          cp Info.plist Payload/WebViewApp.app/
+          cp Info.plist WebViewApp.app/
+          cp WebViewApp.app WebViewApp.app/WebViewApp
+          mv WebViewApp.app Payload/
 
-          cd Payload
-          zip -r ../WebViewApp.ipa WebViewApp.app
+          # Package into IPA
+          zip -r WebViewApp.ipa Payload
 
-      - name: Upload .ipa
+      - name: Upload IPA
         uses: actions/upload-artifact@v3
         with:
           name: WebViewApp
