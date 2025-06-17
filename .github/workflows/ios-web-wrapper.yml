@@ -62,6 +62,16 @@ jobs:
           import WebKit
 
           class ViewController: UIViewController, WKNavigationDelegate {
+              let rootHost: String = {
+                  let originalURL = "__URL_PLACEHOLDER__"
+                  guard let url = URL(string: originalURL),
+                        let scheme = url.scheme,
+                        let host = url.host else {
+                      return ""
+                  }
+                  return "\(scheme)://\(host)"
+              }()
+
               override func loadView() {
                   let webView = WKWebView()
                   webView.navigationDelegate = self
@@ -82,7 +92,17 @@ jobs:
 
               func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-                  decisionHandler(.allow)
+                  guard let requestURL = navigationAction.request.url else {
+                      decisionHandler(.cancel)
+                      return
+                  }
+
+                  if requestURL.absoluteString.hasPrefix(rootHost) {
+                      decisionHandler(.allow)
+                  } else {
+                      print("Blocked navigation to \\(requestURL.absoluteString)")
+                      decisionHandler(.cancel)
+                  }
               }
           }
 
@@ -106,7 +126,6 @@ jobs:
           INPUT_URL: ${{ github.event.inputs.url }}
         run: |
           cd WebViewApp
-          # Escape slashes for sed replacement
           URL_ESCAPED="${INPUT_URL//\//\\/}"
           sed -i '' "s/__URL_PLACEHOLDER__/${URL_ESCAPED}/g" main.swift
 
@@ -132,7 +151,6 @@ jobs:
           codesign -s - --force --entitlements entitlements.plist WebViewApp.app
 
           mv WebViewApp.app Payload/
-
           zip -r WebViewApp.ipa Payload
 
       - name: Upload IPA artifact
