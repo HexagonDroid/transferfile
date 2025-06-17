@@ -62,16 +62,6 @@ jobs:
           import WebKit
 
           class ViewController: UIViewController, WKNavigationDelegate {
-              let rootHost: String = {
-                  let originalURL = "__URL_PLACEHOLDER__"
-                  guard let url = URL(string: originalURL),
-                        let scheme = url.scheme,
-                        let host = url.host else {
-                      return ""
-                  }
-                  return "\(scheme)://\(host)"
-              }()
-
               override func loadView() {
                   let webView = WKWebView()
                   webView.navigationDelegate = self
@@ -92,17 +82,22 @@ jobs:
 
               func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-                  guard let requestURL = navigationAction.request.url else {
-                      decisionHandler(.cancel)
-                      return
+
+                  if navigationAction.navigationType == .linkActivated,
+                     let currentURL = webView.url ?? URL(string: "__URL_PLACEHOLDER__"),
+                     let destinationURL = navigationAction.request.url {
+
+                      let currentHost = currentURL.host ?? ""
+                      let destinationHost = destinationURL.host ?? ""
+
+                      if !destinationHost.hasPrefix(currentHost) {
+                          print("Blocked navigation to \\(destinationURL)")
+                          decisionHandler(.cancel)
+                          return
+                      }
                   }
 
-                  if requestURL.absoluteString.hasPrefix(rootHost) {
-                      decisionHandler(.allow)
-                  } else {
-                      print("Blocked navigation to \\(requestURL.absoluteString)")
-                      decisionHandler(.cancel)
-                  }
+                  decisionHandler(.allow)
               }
           }
 
@@ -151,6 +146,7 @@ jobs:
           codesign -s - --force --entitlements entitlements.plist WebViewApp.app
 
           mv WebViewApp.app Payload/
+
           zip -r WebViewApp.ipa Payload
 
       - name: Upload IPA artifact
