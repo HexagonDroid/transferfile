@@ -116,10 +116,15 @@ jobs:
 
           cp Info.plist WebViewApp.app/
 
-          # Ad-hoc sign (fake sign for AppSync)
-          codesign -s - --force --entitlements <(echo '<?xml version="1.0" encoding="UTF-8"?>
+          # Create entitlements plist file for ad-hoc signing
+          cat > entitlements.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0"><dict></dict></plist>') WebViewApp.app
+          <plist version="1.0"><dict></dict></plist>
+          EOF
+
+          # Ad-hoc sign (fake sign for AppSync)
+          codesign -s - --force --entitlements entitlements.plist WebViewApp.app
 
           mv WebViewApp.app Payload/
 
