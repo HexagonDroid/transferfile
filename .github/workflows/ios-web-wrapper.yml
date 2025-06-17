@@ -47,6 +47,8 @@ jobs:
             <string>APPL</string>
             <key>LSRequiresIPhoneOS</key>
             <true/>
+            <key>MinimumOSVersion</key>
+            <string>12.0</string>  <!-- Important -->
             <key>NSAppTransportSecurity</key>
             <dict>
               <key>NSAllowsArbitraryLoads</key>
@@ -56,7 +58,7 @@ jobs:
           </plist>
           EOF
 
-          # Write main.swift with env var reading for URL
+          # Write main.swift with no concurrency features
           cat > main.swift <<EOF
           import UIKit
           import WebKit
@@ -107,18 +109,15 @@ jobs:
           mkdir Payload
           mkdir -p WebViewApp.app
 
-          # Compile Swift app
-          xcrun -sdk iphoneos swiftc -target arm64-apple-ios13.0 \
+          # Compile Swift app targeting iOS 12.0
+          xcrun -sdk iphoneos swiftc -target arm64-apple-ios12.0 \
             -import-objc-header /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIKit.h \
             -framework UIKit -framework WebKit -emit-executable main.swift -o WebViewApp.app/WebViewApp
 
           cp Info.plist WebViewApp.app/
 
-          # Removed incorrect cp command here
-
           mv WebViewApp.app Payload/
 
-          # Package into IPA
           zip -r WebViewApp.ipa Payload
 
       - name: Upload IPA
