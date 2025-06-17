@@ -100,11 +100,14 @@ jobs:
 
           UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
           EOF
-          
+
       - name: Inject URL into Swift source
+        env:
+          INPUT_URL: ${{ github.event.inputs.url }}
         run: |
           cd WebViewApp
-          URL_ESCAPED="${{ github.event.inputs.url//\//\\/ }}"
+          # Escape slashes for sed replacement
+          URL_ESCAPED="${INPUT_URL//\//\\/}"
           sed -i '' "s/__URL_PLACEHOLDER__/${URL_ESCAPED}/g" main.swift
 
       - name: Build and ad-hoc sign IPA
@@ -119,6 +122,7 @@ jobs:
 
           cp Info.plist WebViewApp.app/
 
+          # Create empty entitlements file for codesign
           cat > entitlements.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
