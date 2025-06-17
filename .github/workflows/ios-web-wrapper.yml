@@ -113,7 +113,9 @@ jobs:
             -framework UIKit -framework WebKit -emit-executable main.swift -o WebViewApp.app/WebViewApp
 
           cp Info.plist WebViewApp.app/
-          cp WebViewApp.app WebViewApp.app/WebViewApp
+
+          # Removed incorrect cp command here
+
           mv WebViewApp.app Payload/
 
           # Package into IPA
