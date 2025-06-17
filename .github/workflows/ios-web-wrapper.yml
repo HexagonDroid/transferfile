@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up working directory and create Swift app
+      - name: Setup WebViewApp and write files
         env:
           TARGET_URL: ${{ github.event.inputs.url }}
         run: |
@@ -48,7 +48,7 @@ jobs:
             <key>LSRequiresIPhoneOS</key>
             <true/>
             <key>MinimumOSVersion</key>
-            <string>12.0</string>  <!-- Important -->
+            <string>12.0</string>
             <key>NSAppTransportSecurity</key>
             <dict>
               <key>NSAllowsArbitraryLoads</key>
@@ -58,7 +58,7 @@ jobs:
           </plist>
           EOF
 
-          # Write main.swift with no concurrency features
+          # Write main.swift (no concurrency, simple WKWebView fullscreen)
           cat > main.swift <<EOF
           import UIKit
           import WebKit
@@ -102,7 +102,7 @@ jobs:
           UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
           EOF
 
-      - name: Build IPA
+      - name: Build and ad-hoc sign IPA
         run: |
           cd WebViewApp
 
@@ -116,11 +116,16 @@ jobs:
 
           cp Info.plist WebViewApp.app/
 
+          # Ad-hoc sign (fake sign for AppSync)
+          codesign -s - --force --entitlements <(echo '<?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict></dict></plist>') WebViewApp.app
+
           mv WebViewApp.app Payload/
 
           zip -r WebViewApp.ipa Payload
 
-      - name: Upload IPA
+      - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: WebViewApp
