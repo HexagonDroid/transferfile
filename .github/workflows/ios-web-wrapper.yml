@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       url:
-        description: 'Website URL'
+        description: 'Website URL to open'
         required: true
         default: 'https://example.com'
 
@@ -17,8 +17,6 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Setup WebViewApp and write files
-        env:
-          TARGET_URL: ${{ github.event.inputs.url }}
         run: |
           mkdir WebViewApp && cd WebViewApp
 
@@ -58,7 +56,7 @@ jobs:
           </plist>
           EOF
 
-          # Write main.swift (no concurrency, simple WKWebView fullscreen)
+          # Write main.swift with URL placeholder
           cat > main.swift <<EOF
           import UIKit
           import WebKit
@@ -73,8 +71,9 @@ jobs:
               override func viewDidLoad() {
                   super.viewDidLoad()
                   if let webView = self.view as? WKWebView {
-                      guard let urlString = ProcessInfo.processInfo.environment["TARGET_URL"], let url = URL(string: urlString) else {
-                          fatalError("TARGET_URL is not set or invalid")
+                      let urlString = "__URL_PLACEHOLDER__"
+                      guard let url = URL(string: urlString) else {
+                          fatalError("Invalid URL string")
                       }
                       webView.load(URLRequest(url: url))
                       webView.allowsBackForwardNavigationGestures = true
@@ -101,29 +100,31 @@ jobs:
 
           UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
           EOF
+          
+      - name: Inject URL into Swift source
+        run: |
+          cd WebViewApp
+          URL_ESCAPED="${{ github.event.inputs.url//\//\\/ }}"
+          sed -i '' "s/__URL_PLACEHOLDER__/${URL_ESCAPED}/g" main.swift
 
       - name: Build and ad-hoc sign IPA
         run: |
           cd WebViewApp
-
           mkdir Payload
           mkdir -p WebViewApp.app
 
-          # Compile Swift app targeting iOS 12.0
           xcrun -sdk iphoneos swiftc -target arm64-apple-ios12.0 \
             -import-objc-header /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIKit.h \
             -framework UIKit -framework WebKit -emit-executable main.swift -o WebViewApp.app/WebViewApp
 
           cp Info.plist WebViewApp.app/
 
-          # Create entitlements plist file for ad-hoc signing
           cat > entitlements.plist <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0"><dict></dict></plist>
           EOF
 
-          # Ad-hoc sign (fake sign for AppSync)
           codesign -s - --force --entitlements entitlements.plist WebViewApp.app
 
           mv WebViewApp.app Payload/
