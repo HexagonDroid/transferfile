@@ -18,80 +18,82 @@ jobs:
 
       - name: Set up working directory
         run: |
-          mkdir WebViewApp && cd WebViewApp
+          mkdir WebViewApp
+          cd WebViewApp
+
           cat > Info.plist <<EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-           "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleIdentifier</key>
-            <string>com.github.webviewwrapper</string>
-            <key>CFBundleExecutable</key>
-            <string>WebViewApp</string>
-            <key>CFBundleName</key>
-            <string>WebViewApp</string>
-            <key>CFBundleVersion</key>
-            <string>1.0</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>UILaunchStoryboardName</key>
-            <string>LaunchScreen</string>
-            <key>UIRequiresFullScreen</key>
-            <true/>
-            <key>CFBundlePackageType</key>
-            <string>APPL</string>
-            <key>LSRequiresIPhoneOS</key>
-            <true/>
-            <key>NSAppTransportSecurity</key>
-            <dict>
-              <key>NSAllowsArbitraryLoads</key>
-              <true/>
-            </dict>
-          </dict>
-          </plist>
-          EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.github.webviewwrapper</string>
+  <key>CFBundleExecutable</key>
+  <string>WebViewApp</string>
+  <key>CFBundleName</key>
+  <string>WebViewApp</string>
+  <key>CFBundleVersion</key>
+  <string>1.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>UILaunchStoryboardName</key>
+  <string>LaunchScreen</string>
+  <key>UIRequiresFullScreen</key>
+  <true/>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>LSRequiresIPhoneOS</key>
+  <true/>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+  </dict>
+</dict>
+</plist>
+EOF
 
           cat > main.swift <<EOF
-          import UIKit
-          import WebKit
+import UIKit
+import WebKit
 
-          class ViewController: UIViewController, WKNavigationDelegate {
-              override func loadView() {
-                  let webView = WKWebView()
-                  webView.navigationDelegate = self
-                  self.view = webView
-              }
+class ViewController: UIViewController, WKNavigationDelegate {
+    override func loadView() {
+        let webView = WKWebView()
+        webView.navigationDelegate = self
+        self.view = webView
+    }
 
-              override func viewDidLoad() {
-                  super.viewDidLoad()
-                  if let webView = self.view as? WKWebView {
-                      let url = URL(string: "\(URL)")!
-                      webView.load(URLRequest(url: url))
-                      webView.allowsBackForwardNavigationGestures = true
-                  }
-              }
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        if let webView = self.view as? WKWebView {
+            let url = URL(string: "${{ github.event.inputs.url }}")!
+            webView.load(URLRequest(url: url))
+            webView.allowsBackForwardNavigationGestures = true
+        }
+    }
 
-              func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                           decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-                  decisionHandler(.allow)
-              }
-          }
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
+                 decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        decisionHandler(.allow)
+    }
+}
 
-          class AppDelegate: UIResponder, UIApplicationDelegate {
-              var window: UIWindow?
+class AppDelegate: UIResponder, UIApplicationDelegate {
+    var window: UIWindow?
 
-              func application(_ application: UIApplication,
-                               didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-                  window = UIWindow()
-                  window?.rootViewController = ViewController()
-                  window?.makeKeyAndVisible()
-                  return true
-              }
-          }
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        window = UIWindow()
+        window?.rootViewController = ViewController()
+        window?.makeKeyAndVisible()
+        return true
+    }
+}
 
-          UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
-          EOF
+UIApplicationMain(CommandLine.argc, CommandLine.unsafeArgv, nil, NSStringFromClass(AppDelegate.self))
+EOF
 
       - name: Build IPA
         run: |
